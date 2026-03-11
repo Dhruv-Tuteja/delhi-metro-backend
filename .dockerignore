@@ -1,0 +1,33 @@
+# Dependencies - Let Docker install these fresh
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables - Protect your secrets!
+.env
+.env.local
+.env.development
+.env.production
+
+# Build/Dist folders (if you use TypeScript or a bundler)
+dist/
+build/
+.next/
+out/
+
+# Version Control
+.git
+.gitignore
+.hg
+.svn
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

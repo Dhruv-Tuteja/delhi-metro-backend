@@ -45,6 +45,9 @@ const io = new Server(server, {
 registerTrackingSocket(io);
 signalMonitor.start(io);
 
+// Make io accessible to route handlers (e.g. sessionRoutes needs it to emit session:ended)
+app.set('io', io);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Express Middleware
 // ─────────────────────────────────────────────────────────────────────────────

@@ -101,11 +101,17 @@ function registerTrackingSocket(io) {
 
       sessionStore.markStationVisited(trackingId, stationId);
 
+      // Get full visited list so viewers mark all stations up to this one
+      // (handles manual jumps that skip intermediate stations)
+      const session = sessionStore.get(trackingId);
+      const allVisited = session ? session.visitedStationIds : [stationId];
+
       // Relay to all viewers
       io.to(`track:${trackingId}`).emit('station:visited', {
         trackingId,
         stationId,
         stationName,
+        allVisitedStationIds: allVisited,
         timestamp: timestamp || Date.now(),
       });
 
@@ -118,7 +124,7 @@ function registerTrackingSocket(io) {
     socket.on('sos:triggered', ({ trackingId, stationName, locationUrl }) => {
       if (!trackingId) return;
 
-      sessionStore.markSosAlert(trackingId);
+      sessionStore.markSosAlert(trackingId, stationName, locationUrl);
 
       io.to(`track:${trackingId}`).emit('sos:triggered', {
         trackingId,
@@ -165,6 +171,14 @@ function registerTrackingSocket(io) {
       if (trackingId && role === 'viewer') {
         const viewerCount = getViewerCount(io, trackingId);
         io.to(`phone:${trackingId}`).emit('viewers:count', { count: viewerCount });
+      }
+
+      // If phone disconnects, notify viewers the session may have ended
+      if (trackingId && role === 'phone') {
+        const session = sessionStore.get(trackingId);
+        if (session && !session.isActive) {
+          io.to(`track:${trackingId}`).emit('session:ended', { trackingId });
+        }
       }
 
       logger.debug(`Socket disconnected: ${socket.id} (role: ${role || 'unknown'})`);

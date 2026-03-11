@@ -79,11 +79,16 @@ class SessionService {
    * @param {Array}  gpsPath - Complete GPS breadcrumb array from Android
    * @returns {object|null} Ended session or null if not found
    */
-  async endSession(trackingId, gpsPath = []) {
+  async endSession(trackingId, gpsPath = [], io = null) {
     const session = sessionStore.end(trackingId);
     if (!session) {
       logger.warn(`Attempted to end non-existent session: ${trackingId}`);
       return null;
+    }
+
+    // Notify all viewers immediately so they don't need to refresh
+    if (io) {
+      io.to(`track:${trackingId}`).emit('session:ended', { trackingId });
     }
 
     // Merge Android's GPS path with any buffer we accumulated server-side

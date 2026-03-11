@@ -103,10 +103,13 @@ class SessionStore {
   /**
    * Marks SOS alert on session.
    */
-  markSosAlert(trackingId) {
+  markSosAlert(trackingId, stationName = null, locationUrl = null) {
     const session = this._sessions.get(trackingId);
     if (!session) return;
     session.hadSosAlert = true;
+    session.lastSosStationName = stationName;
+    session.lastSosTimestamp = Date.now();
+    session.lastSosLocationUrl = locationUrl;
   }
 
   /**
@@ -154,6 +157,9 @@ class SessionStore {
       isActive: session.isActive,
       signalLost: session.signalLost,
       hadSosAlert: session.hadSosAlert,
+      lastSosStationName: session.lastSosStationName || null,
+      lastSosTimestamp: session.lastSosTimestamp || null,
+      lastSosLocationUrl: session.lastSosLocationUrl || null,
       lastPingAt: session.lastPingAt,
     };
   }

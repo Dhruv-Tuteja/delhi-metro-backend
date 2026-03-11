@@ -1,0 +1,7 @@
+tunnel: <a3764822-7890-46f9-93b3-8f01a6280384>
+credentials-file: C:\Users\Dhruv\.cloudflared\<a3764822-7890-46f9-93b3-8f01a6280384>.json
+
+ingress:
+  - hostname: api.metrotracker.app
+    service: http://localhost:3001
+  - service: http_status:404

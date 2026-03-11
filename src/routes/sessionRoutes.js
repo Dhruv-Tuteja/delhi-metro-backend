@@ -83,8 +83,9 @@ router.post(
   async (req, res) => {
     try {
       const { trackingId, gpsPath = [] } = req.body;
+      const io = req.app.get('io');
 
-      const session = await sessionService.endSession(trackingId, gpsPath);
+      const session = await sessionService.endSession(trackingId, gpsPath, io);
       if (!session) {
         return res.status(404).json({ success: false, message: 'Session not found' });
       }

@@ -1,20 +1,20 @@
-# Use official Node.js LTS image
 FROM node:18-alpine
 
-# Set working directory
-WORKDIR /app
+# Create app directory
+WORKDIR /usr/src/app
 
-# Copy package files first (for better layer caching)
+# Install app dependencies
+# A wildcard is used to ensure both package.json AND package-lock.json are copied
 COPY package*.json ./
 
-# Install production dependencies only
-RUN npm install 
+# Install only production dependencies for a smaller, faster build
+RUN npm install --omit=dev
 
-# Copy source code
-COPY src/ ./src/
+# Bundle app source - This copies EVERYTHING (routes, services, utils, etc.)
+COPY . .
 
-# Expose port
+# Match the port in your index.js
+ENV PORT=3001
 EXPOSE 3001
 
-# Start the server
-CMD ["node", "src/index.js"]
+CMD [ "node", "src/index.js" ]

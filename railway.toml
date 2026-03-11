@@ -1,0 +1,13 @@
+# railway.toml — Railway deployment configuration for the backend
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "node src/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "delhi-metro-backend"

@@ -59,6 +59,8 @@ class SessionService {
         userId,
         sourceStation,
         destinationStation,
+        stationRoute: stationRoute || [],   // persisted so cold loads render the map
+        visitedStationIds: [],              // will be updated incrementally
         startedAt: Date.now(),
         isActive: true,
       });

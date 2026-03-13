@@ -142,3 +142,54 @@ router.get('/:trackingId/status', async (req, res) => {
 });
 
 module.exports = router;
+
+/**
+ * GET /api/sessions/:trackingId/replay
+ * Returns the full GPS path for a completed trip (for website replay feature).
+ * Reads gpsPath from the trips Firestore collection using the tripId stored on the session.
+ */
+router.get('/:trackingId/replay', async (req, res) => {
+  try {
+    const { trackingId } = req.params;
+    if (!/^TRK-[A-Z0-9]{6}$/.test(trackingId)) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking ID format' });
+    }
+
+    const { getFirestore } = require('../firebase/firebaseAdmin');
+    const db = getFirestore();
+
+    // Get session to find tripId and stationRoute
+    const sessionDoc = await db.collection('tracking_sessions').doc(trackingId).get();
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ success: false, message: 'Session not found' });
+    }
+
+    const session = sessionDoc.data();
+
+    // Get full GPS path from the trip document
+    let gpsPath = [];
+    if (session.tripId) {
+      const tripDoc = await db.collection('trips').doc(session.tripId).get();
+      if (tripDoc.exists) {
+        gpsPath = tripDoc.data().gpsPath || [];
+      }
+    }
+
+    return res.json({
+      success: true,
+      replay: {
+        trackingId,
+        sourceStation: session.sourceStation,
+        destinationStation: session.destinationStation,
+        stationRoute: session.stationRoute || [],
+        visitedStationIds: session.visitedStationIds || [],
+        gpsPath,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt || null,
+      },
+    });
+  } catch (err) {
+    logger.error('Failed to fetch replay data', err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch replay data' });
+  }
+});

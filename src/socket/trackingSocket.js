@@ -62,7 +62,7 @@ function registerTrackingSocket(io) {
     // ANDROID APP: sends a GPS location update
     // ─────────────────────────────────────────────────────────────────────────
     socket.on('location:update', (payload) => {
-      const { trackingId, lat, lng, timestamp, speedKmh = 0, accuracy = 0 } = payload;
+      const { trackingId, lat, lng, timestamp, speedKmh = 0, accuracy = 0, segment: androidSegment } = payload;
 
       if (!trackingId || lat === undefined || lng === undefined) {
         logger.warn('Invalid location:update payload received');
@@ -72,9 +72,10 @@ function registerTrackingSocket(io) {
       const session = sessionStore.get(trackingId);
       if (!session || !session.isActive) return;
 
-      // Classify segment type
-      const nearStation = isNearAnyStation(lat, lng, session.stationRoute);
-      const segment = classifySegment(speedKmh, nearStation);
+      // Trust Android's segment classification — it uses the state machine
+      // which knows whether the user is currently in a confirmed metro leg.
+      // Fall back to speed-based classification only if Android didn't send one.
+      const segment = androidSegment || (speedKmh > 30 ? 'metro' : 'transit');
 
       const point = { lat, lng, timestamp: timestamp || Date.now(), segment, accuracy };
 

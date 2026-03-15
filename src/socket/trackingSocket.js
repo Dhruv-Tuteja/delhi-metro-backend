@@ -153,8 +153,17 @@ function registerTrackingSocket(io) {
       socket.data.trackingId = trackingId;
       socket.data.role = 'viewer';
 
+      // If the phone is still connected, signal isn't actually lost —
+      // clear stale signalLost flag before sending snapshot so viewer
+      // doesn't see "connection lost" banner after their own net dropped
+      const phoneRoom = io.sockets.adapter.rooms.get(`phone:${trackingId}`);
+      if (phoneRoom && phoneRoom.size > 0) {
+        sessionStore.setSignalLost(trackingId, false);
+      }
+
       // Send full current state immediately so the map renders without waiting
-      socket.emit('session:snapshot', session);
+      const freshSession = sessionStore.toPublicView(trackingId);
+      socket.emit('session:snapshot', freshSession);
 
       // Broadcast updated viewer count to the phone
       const viewerCount = getViewerCount(io, trackingId);

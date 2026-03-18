@@ -23,6 +23,7 @@
  */
 
 const MAX_GPS_BUFFER = 1000;
+const MAX_ACTIVE_SESSIONS = parseInt(process.env.MAX_ACTIVE_SESSIONS, 10) || 5000;
 
 class SessionStore {
   constructor() {
@@ -36,6 +37,10 @@ class SessionStore {
    * @returns {object} The created session
    */
   create(sessionData) {
+    if (this._sessions.size >= MAX_ACTIVE_SESSIONS) {
+      return null;
+    }
+
     const session = {
       ...sessionData,
       gpsBuffer: [],
@@ -93,11 +98,15 @@ class SessionStore {
 
   /**
    * Updates the signal lost state for a session.
+   * When restoring signal, also refresh lastPingAt to avoid immediate re-trigger.
    */
   setSignalLost(trackingId, isLost) {
     const session = this._sessions.get(trackingId);
     if (!session) return;
     session.signalLost = isLost;
+    if (!isLost) {
+      session.lastPingAt = Date.now();
+    }
   }
 
   /**
@@ -136,6 +145,14 @@ class SessionStore {
    */
   getAllActive() {
     return Array.from(this._sessions.values()).filter((s) => s.isActive);
+  }
+
+  /**
+   * Returns all sessions (active + ended).
+   * @returns {object[]}
+   */
+  getAll() {
+    return Array.from(this._sessions.values());
   }
 
   /**

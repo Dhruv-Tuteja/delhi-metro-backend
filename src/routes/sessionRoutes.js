@@ -1,10 +1,37 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { body, param, validationResult } = require('express-validator');
 const sessionService = require('../services/sessionService');
 const sessionStore = require('../services/sessionStore');
+const { requireApiKey } = require('../middleware/apiKeyAuth');
 const logger = require('../utils/logger');
 
 const router = express.Router();
+
+// Rate limiters (in-memory; consider Redis for multi-instance deployments)
+const sessionStartLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { success: false, message: 'Too many session starts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const sessionEndLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  message: { success: false, message: 'Too many session ends. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const sessionFetchLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60,
+  message: { success: false, message: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * Validation middleware — returns 400 with error details if any rule fails.
@@ -31,6 +58,8 @@ const validate = (req, res, next) => {
  */
 router.post(
   '/start',
+  requireApiKey,
+  sessionStartLimiter,
   [
     body('tripId').notEmpty().withMessage('tripId is required'),
     body('userId').notEmpty().withMessage('userId is required'),
@@ -59,6 +88,10 @@ router.post(
       });
     } catch (err) {
       logger.error('Failed to start session', err);
+      const message = err?.message;
+      if (message && message.includes('Maximum active sessions')) {
+        return res.status(503).json({ success: false, message: 'Server is temporarily busy. Please try again later.' });
+      }
       return res.status(500).json({ success: false, message: 'Failed to create tracking session' });
     }
   }
@@ -75,6 +108,8 @@ router.post(
  */
 router.post(
   '/end',
+  requireApiKey,
+  sessionEndLimiter,
   [
     body('trackingId').notEmpty().withMessage('trackingId is required'),
     body('gpsPath').optional().isArray(),
@@ -105,7 +140,8 @@ router.post(
  */
 router.get(
   '/:trackingId',
-  [param('trackingId').matches(/^TRK-[A-Z0-9]{6}$/).withMessage('Invalid tracking ID format')],
+  sessionFetchLimiter,
+  [param('trackingId').matches(/^TRK-[A-Z0-9]{6,12}$/).withMessage('Invalid tracking ID format')],
   validate,
   async (req, res) => {
     try {
@@ -128,7 +164,7 @@ router.get(
  * GET /api/sessions/:trackingId/status
  * Lightweight status check — is the session active?
  */
-router.get('/:trackingId/status', async (req, res) => {
+router.get('/:trackingId/status', sessionFetchLimiter, async (req, res) => {
   const session = sessionStore.get(req.params.trackingId);
   if (!session) {
     return res.json({ exists: false, isActive: false });
@@ -148,10 +184,10 @@ module.exports = router;
  * Returns the full GPS path for a completed trip (for website replay feature).
  * Reads gpsPath from the trips Firestore collection using the tripId stored on the session.
  */
-router.get('/:trackingId/replay', async (req, res) => {
+router.get('/:trackingId/replay', sessionFetchLimiter, async (req, res) => {
   try {
     const { trackingId } = req.params;
-    if (!/^TRK-[A-Z0-9]{6}$/.test(trackingId)) {
+    if (!/^TRK-[A-Z0-9]{6,12}$/.test(trackingId)) {
       return res.status(400).json({ success: false, message: 'Invalid tracking ID format' });
     }
 

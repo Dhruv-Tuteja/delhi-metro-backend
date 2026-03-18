@@ -55,6 +55,15 @@ function registerTrackingSocket(io) {
         sessionStartedAt: session.startedAt,
       });
 
+      // When the phone reconnects, clear the signal-lost state and notify viewers
+      if (session.signalLost) {
+        sessionStore.setSignalLost(trackingId, false);
+        io.to(`track:${trackingId}`).emit('signal_restored', {
+          trackingId,
+          restoredAt: Date.now(),
+        });
+      }
+
       logger.info(`Phone joined session: ${trackingId}`);
     });
 

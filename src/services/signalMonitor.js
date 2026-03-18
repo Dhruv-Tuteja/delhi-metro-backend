@@ -2,6 +2,7 @@ const sessionStore = require('./sessionStore');
 const logger = require('../utils/logger');
 
 const SIGNAL_LOSS_THRESHOLD_MS = parseInt(process.env.SIGNAL_LOSS_THRESHOLD_MS) || 120_000; // 2 minutes
+const SESSION_TTL_MS = parseInt(process.env.SESSION_TTL_MS, 10) || 24 * 60 * 60 * 1000; // 24h
 const CHECK_INTERVAL_MS = 15_000; // Check every 15 seconds
 
 /**
@@ -64,6 +65,17 @@ class SignalMonitor {
           restoredAt: now,
         });
         logger.info(`Signal restored for session ${session.trackingId}`);
+      }
+    }
+
+    // Prune stale sessions to prevent unbounded memory growth.
+    for (const session of sessionStore.getAll()) {
+      if (!session.isActive && session.endedAt && now - session.endedAt > SESSION_TTL_MS) {
+        sessionStore.delete(session.trackingId);
+        logger.debug(`Pruned ended session ${session.trackingId} (older than TTL)`);
+      } else if (session.isActive && now - session.lastPingAt > SESSION_TTL_MS) {
+        sessionStore.delete(session.trackingId);
+        logger.warn(`Pruned stale active session ${session.trackingId} (no ping for ${Math.floor((now - session.lastPingAt) / 1000)}s)`);
       }
     }
   }

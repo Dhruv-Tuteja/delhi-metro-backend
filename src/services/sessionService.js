@@ -4,7 +4,8 @@ const { getFirestore } = require('../firebase/firebaseAdmin');
 const logger = require('../utils/logger');
 
 // Human-friendly alphabet — no 0/O, I/l confusion
-const generateId = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
+// Increased length to make brute-force enumeration infeasible (now 34+ bits of entropy)
+const generateId = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 12);
 
 /**
  * SessionService — business logic for session lifecycle.
@@ -41,7 +42,7 @@ class SessionService {
 
     const trackingId = `TRK-${generateId()}`;
 
-    sessionStore.create({
+    const session = sessionStore.create({
       trackingId,
       tripId: String(tripId),
       userId,
@@ -49,6 +50,11 @@ class SessionService {
       destinationStation,
       stationRoute: stationRoute || [],
     });
+
+    if (!session) {
+      // Too many active sessions (protection against DoS)
+      throw new Error('Maximum active sessions reached');
+    }
 
     // Write session metadata to Firestore so it survives server restarts
     // (lightweight — no GPS data here)

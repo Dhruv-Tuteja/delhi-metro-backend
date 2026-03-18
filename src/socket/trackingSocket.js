@@ -38,6 +38,17 @@ function registerTrackingSocket(io) {
     socket.on('phone:join', ({ trackingId }) => {
       if (!trackingId) return;
 
+      // Require API key for phone (location sender) connections
+      const apiKey =
+        socket.handshake.query?.apiKey ||
+        socket.handshake.headers['x-api-key'] ||
+        (socket.handshake.auth && socket.handshake.auth.apiKey);
+
+      if (!process.env.API_SECRET_KEY || apiKey !== process.env.API_SECRET_KEY) {
+        socket.emit('error', { code: 'UNAUTHORIZED', message: 'Invalid API key' });
+        return;
+      }
+
       const session = sessionStore.get(trackingId);
       if (!session) {
         socket.emit('error', { code: 'SESSION_NOT_FOUND', message: 'No active session for this tracking ID' });

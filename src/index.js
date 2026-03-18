@@ -42,26 +42,8 @@ const io = new Server(server, {
   transports: ['websocket', 'polling'],
 });
 
-// Socket handshake auth (protects against unauthorized clients and brute-force room joins)
-io.use((socket, next) => {
-  const apiKey =
-    socket.handshake.query?.apiKey ||
-    socket.handshake.headers['x-api-key'] ||
-    (socket.handshake.auth && socket.handshake.auth.apiKey);
-
-  if (!process.env.API_SECRET_KEY) {
-    logger.warn('API_SECRET_KEY not configured for socket auth');
-    return next(new Error('Server misconfiguration'));
-  }
-
-  if (!apiKey || apiKey !== process.env.API_SECRET_KEY) {
-    logger.warn(`Unauthorized socket connection attempt from ${socket.handshake.address || 'unknown'}`);
-    return next(new Error('Unauthorized'));
-  }
-
-  next();
-});
-
+// NOTE: viewers should be able to connect without a secret key (public view).
+// The Android phone (location sender) must still provide the API key when joining.
 registerTrackingSocket(io);
 signalMonitor.start(io);
 

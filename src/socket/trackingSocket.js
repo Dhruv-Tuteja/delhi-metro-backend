@@ -81,6 +81,15 @@ function registerTrackingSocket(io) {
       const session = sessionStore.get(trackingId);
       if (!session || !session.isActive) return;
 
+      // If signal was previously marked lost, restore it now that we got an update.
+      if (session.signalLost) {
+        sessionStore.setSignalLost(trackingId, false);
+        io.to(`track:${trackingId}`).emit('signal_restored', {
+          trackingId,
+          restoredAt: Date.now(),
+        });
+      }
+
       // Trust Android's segment classification — it uses the state machine
       // which knows whether the user is currently in a confirmed metro leg.
       // Fall back to speed-based classification only if Android didn't send one.
